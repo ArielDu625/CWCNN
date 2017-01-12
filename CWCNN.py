@@ -86,8 +86,8 @@ class CWCNN(object):
                     #char_index shape:[batch_size, max_word_length]
                     char_index = tf.reshape(char_indices[idx], [-1, self.max_word_length])
                     #??????????????????????????????????
-                    if idx != 0:
-                        scope.reuse_variables()
+                    #if idx != 0:
+                    #    scope.reuse_variables()
                     #shape [None, max_word_length, char_embed_dim]
                     char_embeds = tf.nn.embedding_lookup(C,char_index)
                     #shape [None, max_word_length, char_embed_dim, 1]
@@ -95,7 +95,7 @@ class CWCNN(object):
                     
                     #create a convolution + max-pooling layer for each c_filter size
                     c_outputs = []
-                    for i, c_filter_h in enumerate(c_filter_hs):
+                    for i, c_filter_h in enumerate(self.c_filter_hs):
                         with tf.name_scope("conv-maxpool-%s" % c_filter_h):
                             #convolutional layer
                             filter_shape = [c_filter_h, char_embed_dim, 1, self.c_hidden_unit]
@@ -139,9 +139,42 @@ class CWCNN(object):
                 #word_inputs is a list of 2-d tensor,
                 #how to reshape  word_inputs to a 3-d tensor??? use tf.pack() and tf.transpose() function
                 #word_inputs_trans is a tensor of shape(b_size, max_sent_length, s_embed_dim)
-                self.word_inputs_trans = tf.transport(tf.pack(self.word_inputs), perm=[1,0,2])
+                word_inputs_trans = tf.transport(tf.pack(self.word_inputs), perm=[1,0,2])
+                word_inputs_expanded = tf.expand_dims(word_inputs_trans, -1)
                 
-                #
+                s_outputs = []
+                for i, w_filter_h in enumerate(self.w_filter_hs):
+                    with tf.name_scope("conv-maxpool-%s" % w_filter_h):
+                        #convolutional layer
+                        filter_shape = [w_filter_h, s_embed_dim, 1, self.w_hidden_unit]
+                        W = tf.get_variable("W", shape = filter_shape,
+                                            initializer = tf.truncated_normal_initializer(stddev = 0.1))
+                        b = tf.get_variable("b", shape = [self.w_hidden_unit],
+                                            initializer = tf.constant_initializer(0.1))
+                        conv = tf.nn.conv2d(word_inputs_expanded,
+                                            W,
+                                            strides = [1,1,1,1],
+                                            padding = "VALID",
+                                            name = "conv")
+                        #Apply non-linearity
+                        h = tf.nn.relu(tf.nn.bias_add(conv, b), name = "relu")
+                        #Max pooling over the output
+                        #shape:[batch_size, 1, 1, w_hidden_unit]
+                        pooled = tf.nn.max_pool(h,
+                                                ksize = [1, self.max_sent_length - w_filter_h + 1, 1, 1],
+                                                strides = [1,1,1,1],
+                                                padding = "VALID",
+                                                name = "pool")
+                        s_output = tf.squeeze(pooled)
+                        s_outputs.append(s_output)
+                cnn_output = tf.concat(1, s_outputs)
+                #1.dropout operation
+                #2.softmax operation
+                #3.define loss function
+                #4.calculate the accuracy
+                
+                
+                        
                 
             
                     
