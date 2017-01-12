@@ -1,1 +1,3 @@
 this is a readme file
+
+the GoogleNews-vectors-negative300.bin(or any other word embedding files) should been put in /data
